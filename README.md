@@ -128,29 +128,154 @@ Note that Avro, Thrift, Protocol Buffer also provide their own storage format, b
 it uses its own parquet storage format. So even if you have Avro object model in your project, when we need to write 
 to disk, the parquet-mr will convert them to Parquet storage format.
 
+# Parquet data nested encoding schemes
+
+To encode nested columns, Parquet uses the **Dremel encoding** with **definition and repetition levels**. 
+
+**Definition levels**: specify how many optional fields in the path for the column are defined. 
+**Repetition levels**: specify at what repeated field in the path has the value repeated. 
+
+The max definition and repetition levels can be computed from the schema (i.e. how much nesting there is). This 
+defines the maximum number of bits required to store the levels (levels are defined for all values in the column).
 
 
 
-===== 4. Projection Pushdown =====
+Two encodings for the levels are supported BITPACKED and RLE. Only RLE is now used as it supersedes BITPACKED.
+Details about encoding can be found here:
+https://www.waitingforcode.com/apache-parquet/encodings-apache-parquet/read
+## Spark parquet 
+Spark implement paruqet reader and writer. It uses following default value to 
 
-**Projection Pushdown** stands for when your query selects certain columns, it does not need to read the entire data, and then filter the column. The parquet format allows the query to push down the selected column name, and only read the required column.
+### Data organization:
+- Row group (default 128)
+  - Column chunks
+    - Pages(default 1MB)
+      - Metadata
+          - min
+          - max
+          - count
+    - repetition level
+    - definition level
+    - encoded value (actual data)
+
+### Supported Compression algo 
+
+- uncompressed 
+  
+- snappy, 
+
+- gzip, 
+- lzo, 
+  
+- brotli, 
+  
+- lz4, 
+  
+- zstd. 
+  
+Note that 'zstd' requires 'ZStandardCodec' to be installed before Hadoop 2.9.0, 'brotli' requires 'BrotliCodec' 
+to be installed. 
+
+Benchmark time, space.
+
+### Supported encoding schemes
+
+- Plain: - it's available for all types supported by Parquet. It encodes the values back to back and is used as a 
+  last resort when there is no more efficient encoding for given data. The plain encoding always reserves the same 
+  amount of place for given type. For instance, an int 32 bits will be always stored in 4 bytes. 
+  
+
+- RLE_dictionary: This encoding uses three techniques to encode (RLE,bit-packing,dictionary-compression). 
+  RLE is an acronym from **Run-Length Encoding**. This encoding is wonderful when your column has many repeated value.
+  For example a column that is categorical or binary. 
+  
+
+To demonstrate how RLE_dict encoding works, suppose we encode a column that stores country names. 
+
+With plain encoding, we just put these string one by one. 
+
+With RLE_dict encoding, 
+1. We first build a dictionary(key:index, value: country names). 
+   
+2. Raw data becomes a dictionary+ data encoded by dictionary.
+
+3. Then we apply RLE and bit-packing on the encoded data to gain more space.
+
+Check the below figure.
+
+![RLE_dict_encoding](https://raw.githubusercontent.com/pengfei99/ParquetPyArrow/main/img/parquet_page_encoding.PNG)
 
 
-For example, below spark sql query will push the column projection to parquet file. As a result, only the data of the two column will be send back to spark, not the entire data frame.
-<code>
+** The size of dictionary is defined with parquet.dictionary.page.size**. If the size of the generated dictionary is 
+bigger than the defined size. The page will fallback to plain encoding automatically.
+
+To avoid this happens, you can:
+- increase parquet.dictionary.page.size: allows you to have bigger dictionary to host more distinct values.
+- decrease row-group size: allow you to have less distinct values in one page.
+
+
+
+# 4. Projection Pushdown
+
+**Projection Pushdown** stands for when your query selects certain columns, it does not need to read the entire data, 
+and then filter the column. The parquet format allows the query to push down the selected column name, and only read the required column.
+
+
+For example, below spark sql query will push the column projection to parquet file. As a result, only the data of 
+the two column will be send back to spark, not the entire data frame.
+
+```python
+
 data.select(col('title'),col('author')).explain()
-</code>
+
+```
 
 This allows the minimization of data transfer between the file system and the Spark engine by eliminating unnecessary fields from the table scanning process. As all values of the same column are organized in the same column chunks, this can avoid random access on disk(compare to row-based format).
+ 
+# 5. Predicate Pushdown with Partition Pruning
 
-===== 5. Predicate Pushdown with Partition Pruning =====
+The partition pruning technique allows optimizing performance when reading directories and files from the 
+corresponding file system so that only the desired files in the specified partition can be read. It will address 
+to shift the filtering of data as close to the source as possible to prevent keeping unnecessary data into memory 
+with the aim of reducing disk I/O.
 
-The partition pruning technique allows optimizing performance when reading directories and files from the corresponding file system so that only the desired files in the specified partition can be read. It will address to shift the filtering of data as close to the source as possible to prevent keeping unnecessary data into memory with the aim of reducing disk I/O.
-Below, it can be observed that the partition filter push down, which is ‘library.books.title’ = ‘THE HOST’ filter is pushed down into the parquet file scan. This operation enables the minimization of the files and scanning of data.
+Below, it can be observed that the partition filter push down, which is ‘library.books.title’ = ‘THE HOST’ filter 
+is pushed down into the parquet file scan. This operation enables the minimization of the files and scanning of data.
 
-<code>
-parquet_df.filter(col("rating")=="5").explain()
-</code>
+```python
+parquet_df.filter(col("rating")>"3").explain()
+```
+
+As in each page, we have the min, max. So for each group, we know the min, max too. For example, with below row groups
+- Row_group_0: min 0, max2
+- Row_group_1: min 1, max4
+- Row_group_2: min 2, max5
+spark will skip row_group_0, and only read data from 1, 2. This reduce I/O.
+
+
+
+Optimization tips:
+
+1. It does not work well on unsorted data, because, it can have all possible values in all row groups. So spark has to read
+them all. Solution, sort the column that you will use predicate, so each row group will have more narrow min, max ranges.
+   
+2. Use the type of the column in your predicates. For example, if your column has long type, you predicate should be long
+type too. If you use int, the auto conversion of type can ruin the pushdown completely.
+   
+3. If your predicate is equality test (e.g. rating==3). Use **parquet dictionary filtering (parquet.filter.dictionary.enabled)**
+Dictionary contains all unique values of the column chunk, which is stored at the beginning of the column chunk. Use this option
+   can avoid the reading of the whole column chunk. If there is no unique value of 3 of column rating. Then we can skip
+   the row group.
+   
+4. Materialize your preicate to physical parquet folders. For example, if you partitioned your parque file with column
+"rating", then you will have sub-directory such as rating=1,rating=2, etc. Then when you do filtering, spark will only
+   read the parquet file in specific directory. 
+   But becarefull with partitionning of a column, if it has too many distinct value, you may have thousands of small files.
+   This will actually decrease the performence. We will talk about it later in section optimal parquet file size
+   
+
+## Optimize parquet file size
+
 
 
 
