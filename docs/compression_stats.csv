@@ -1,10 +1,10 @@
-framework, compression_type, compression_time(s), size(MiB) 
-pyarrow, none, 72.52, 1312
-pyarrow, brotli, 163.55, 332
-pyarrow, lz4,38.89,589
-pyarrow, gzip, 138.10,372
+framework,compression_type,compression_time,size 
+pyarrow,none,72.52,1312
+pyarrow,brotli,163.55,332
+pyarrow,lz4,38.89,589
+pyarrow,gzip,138.10,372
 spark,gzip,74.42,355
 spark,snappy,50.43,552
-pyarrow, zstd,29.63,385
-pyarrow, snappy, 37.47, 596
- 
+pyarrow,zstd,29.63,385
+pyarrow,snappy,37.47,596
+spark,none,41,1129
