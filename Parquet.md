@@ -34,7 +34,7 @@ We have benchmarked all above data formats for the common data operations latenc
 - Filtering/GroupBy(column-wise)
 - Distinct(row-wise)
 
-For more details about the benchmark, []()
+For more details about the benchmark, [data_format_overview](https://github.com/pengfei99/data_format_and_optimization/blob/main/notebooks/data_format_overview.ipynb)
 
 After the above analysis, we can say that Orc and Parquet are the best data formats for OLAP applications. They both support various compression algorithms which reduce significantly disk usage. They are both very efficient on columnar-oriented data analysis operations. 
 
