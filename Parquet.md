@@ -39,6 +39,16 @@ Note:
 1. CSV is splittable when it is a raw, uncompressed file or using a splittable compression format such as BZIP2 or LZO (note: LZO needs to be indexed to be splittable!)
 2. JSON has the same conditions about splittability when compressed as CSV with one extra difference. When “wholeFile” option is set to true in Spark(re: SPARK-18352), JSON is NOT splittable.
 
+More chocking Number: (todo: add job latency time) 
+
+``` shell
+mc ls --summarize s3/pengfei/diffusion/data_format/ny_taxis/parquet/compress/2019_gzip | grep "Total Size"
+Total Size: 3.8 GiB
+mc ls --summarize s3/pengfei/diffusion/data_format/ny_taxis/csv/2009 | grep "Total Size"
+Total Size: 22 GiB
+```
+
+
 ### 1.2. Operation latency evaluation for all above data formats 
 
 We have benchmarked all above data formats for the common data operations latency such as:
@@ -77,10 +87,50 @@ As parquet is a standard, and is implemented by various framework. Some framewor
 - Metadata specification variation
 
 ### 2.1 Supported compression algorithme
-Parquet allows us to specify a compression algorithme for each column. 
+Parquet allows us to use various compression algorithme to compress each column. 
+
+Parquet officially supports the following compression algorithms:
+
+- UNCOMPRESSED = 0;
+- SNAPPY = 1;
+- GZIP = 2;
+- LZO = 3;
+- BROTLI = 4; (Added in 2.4)
+- LZ4 = 5;    (Added in 2.4)
+- ZSTD = 6;   (Added in 2.4)
+
+But not all implementation implement all the compression algorithms. For example, pyarrow implements all except **LZO**. Spark by default only includes the **GZIP, and SNAPPY**. For the rest of the algorithme, we need to include the compression codec by ourselves. 
+
+There are also other implementation differences. For example, pyarrow allows us to compress each column with a different compression algo. Spark only allows us to specify one compression algo for the entire parquet file when writing a parquet file. Spark can read the mixed compression parquet file without problems as long as the compression algo is supported.
+
+For more details, please check [Spark Arrow compression benchmark](https://github.com/pengfei99/ParquetPyArrow/blob/main/notebook/compatibility/SparkArrowCompression.ipynb)
 
 
-### 2.2 Timestamp unity variation
+### 2.2 Timestamp implementation variation
+
+#### 2.2.1 Unity variation
+Each framework has their own implementation of timestamp, and they may not be compatible. For example, some framework only support timestamps stored in millisecond ('ms') or microsecond ('us') resolution. 
+
+Since pandas uses nanoseconds to represent timestamps, this can occasionally be a nuisance. 
+If we use pyarrow to write pandas timestamp in parquet format version 1.0, the nanoseconds must be cast to microseconds (‘us’) manually by using the option **coerce_timestamps**. Otherwise, an error will be raised. After adding the option, it still raise an warning, because we lose time precision.
+To suppress this warning, we need to add **allow_truncated_timestamps=True**. Below is an full example
+
+``` python
+pq.write_table(table, where, coerce_timestamps='ms', allow_truncated_timestamps=True)
+```
+If we write in parquet format version 2.0, the nanoseconds are supported, no need to do the conversion.
+
+We have done a full benchmark on timestamp unity [Spark Arrow timestamp](https://github.com/pengfei99/ParquetPyArrow/blob/main/notebook/compatibility/ArrowSparkTimeStamp.ipynb)
+
+#### 2.2.2 Timestamp column type
+
+Older Parquet implementations use **INT96** as column type to store the timestamps, but this is now deprecated. Now, the **long** column type is recommended. This **INT96** includes some older versions of Apache Impala and Apache Spark. To write timestamps in this format, set the use_deprecated_int96_timestamps option to True in write_table.
+
+``` python
+pq.write_table(table, where, use_deprecated_int96_timestamps=True)
+
+```
+
 
 ### 2.3 Unsupported data type
 
