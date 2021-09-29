@@ -1,0 +1,153 @@
+---
+title: "Read parquet files from s3 by using Arrow"
+output: html_document
+---
+
+# Read parque file from s3 by using Arrow 
+
+## Step 1. Install the arrow package with s3 support
+
+By default, for linux the S3 support is not enabled in the default build. To enable it, set the environment variable **LIBARROW_MINIMAL=false** or **NOT_CRAN=true** to choose the full-featured build
+
+You can find the original doc [here](https://arrow.apache.org/docs/r/articles/install.html)
+```{r}
+# don’t use mini when compile arrow
+Sys.setenv(LIBARROW_MINIMAL="false")
+
+# Download and compile the package, it may take a while. Please be patient
+install.packages("arrow", repos = "https://cloud.r-project.org")
+
+# import the package
+library(arrow)
+
+```
+
+## Step 2. Configure a s3 file system
+
+We know this is not the only way, you can also use directly the s3 uri **s3://[access_key:secret_key:session_token@]bucket/path[?region=]**.
+
+But we find the file system solution is easier to use. Below code will create
+a virtual filesystem called minio.  
+
+```{r}
+minio <- S3FileSystem$create(
+   access_key = Sys.getenv("AWS_ACCESS_KEY_ID"),
+   secret_key = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+   session_token = Sys.getenv("AWS_SESSION_TOKEN"),
+   scheme = "https",
+   endpoint_override = Sys.getenv("AWS_S3_ENDPOINT")
+   )
+```
+
+You can have **multiple virtual filesystem** at the same time. For example, below create
+a file system that links to DigitalOcean s3 storage. You can find 
+NYC Taxi dataset in this location.
+
+```{r}
+
+taxi <- S3FileSystem$create(
+  anonymous = TRUE,
+  scheme = "https",
+  endpoint_override = "sfo3.digitaloceanspaces.com"
+)
+
+
+```
+
+## Step 3. Explore the data
+
+Arrow provides you two options to use the data from the s3
+1. Download it from remote server to local file system
+2. Read the data into memory and return a dataframe
+
+### 3.1 Download the data to local file system
+
+We can use function **copy_files** to download the files. Note, you need to 
+change the path of the first example. 
+
+
+```{r}
+
+# copy the file from s3 to local file
+# change the below path to a data path which is in your bucket 
+data_path <- "pengfei/diffusion/data_format/sf_fire/parquet/raw"
+# change the below path, if you want to store the data somewhere else
+local_data_path <- "~/sf_fire/raw/"
+
+try(dir.create(local_data_path, recursive = T))
+arrow::copy_files(minio$path(data_path), local_data_path )
+
+```
+
+
+```{r}
+# copy the data of January 2009 to local file
+try(dir.create("~/nyc-taxi/2009/01", recursive = T))
+
+arrow::copy_files(taxi$path("nyc-taxi/2009/01"), "~/nyc-taxi/2009/01")
+
+```
+
+
+After the download, you can check the file by using the Terminal.
+
+```{bash}
+ls ~/sf_fire/raw
+
+ls ~/nyc-taxi/2009/01
+```
+
+### 3.2 Read the file from local file system
+
+As the files are downloaded to the local file system, we can read it easily by using
+the function **read_parquet**.
+
+```{r}
+
+df_local <- read_parquet("~/sf_fire/raw/part-00000-0f7e798f-924f-4d08-8196-73fd17a47c4e-c000.gz.parquet")
+
+head(df_local)
+
+```
+
+### 3.3 Read data into memory and return a datafame 
+
+We can also directly load the remote data into memory and use it as a data frame
+
+```{r}
+# change the below path to a parquet file that is in your bucket
+remote_parquet_file <- "pengfei/diffusion/data_format/sf_fire/parquet/raw/part-00000-0f7e798f-924f-4d08-8196-73fd17a47c4e-c000.gz.parquet"
+
+df_remote <- read_parquet(minio$path(remote_parquet_file))
+
+head(df_remote)
+
+```
+
+### 3.4 Read partitioned parquet file as dataset
+
+If your parquet files are partitioned into small parquet files, you can read it by 
+using the function **open_dataset**
+
+```{r}
+
+# use a local path and give a partition
+nyc_path <- "~/nyc-taxi"
+df_nyc <- open_dataset(
+  nyc_path,
+  partitioning = c("year", "month")
+)
+head(df_nyc)
+```
+You can also read the data from a remote path
+
+```{r}
+
+df_sf_fire <- open_dataset(
+  minio$path(data_path)
+)
+head(df_sf_fire)
+```
+
+
+
