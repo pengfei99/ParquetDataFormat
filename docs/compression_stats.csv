@@ -8,3 +8,9 @@ spark,snappy,50.43,552
 pyarrow,zstd,29.63,385
 pyarrow,snappy,37.47,596
 spark,none,41,1129
+Rarrow,none,59.06,1318
+Rarrow,snappy,55.43,596
+Rarrow,gzip,123.14,372
+Rarrow,lz4,54.88,589
+Rarrow,zstd,52.78,385
+Rarrow,brotli,132.65,332

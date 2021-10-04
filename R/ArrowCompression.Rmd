@@ -1,0 +1,133 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+# 1. Import arrow package
+
+The arrow package is already installed, so no need to install it. Just import it.
+
+```{r}
+# import the package
+library(arrow)
+```
+
+# 2. Read raw data to a dataframe
+1. Create minio virtual filesystem
+
+```{r}
+minio <- S3FileSystem$create(
+   access_key = Sys.getenv("AWS_ACCESS_KEY_ID"),
+   secret_key = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+   session_token = Sys.getenv("AWS_SESSION_TOKEN"),
+   scheme = "https",
+   endpoint_override = Sys.getenv("AWS_S3_ENDPOINT")
+   )
+```
+
+2. Read raw data
+
+```{r}
+raw_data_path <- "pengfei/diffusion/data_format/sf_fire/parquet/arrow_sf_fire_gzip/546fa4b65a6a4f1f983f31f0eaf586c4.parquet"
+
+df_sf_fire <- read_parquet(minio$path(raw_data_path))
+head(df_sf_fire)
+```
+
+# 3. Write parquet to s3 benchmark
+
+We will use the write_parquet function to benchmark the write time
+
+write_parquet(
+  x,
+  sink,
+  chunk_size = NULL,
+  version = NULL,
+  compression = default_parquet_compression(),
+  compression_level = NULL,
+  use_dictionary = NULL,
+  write_statistics = NULL,
+  data_page_size = NULL,
+  use_deprecated_int96_timestamps = FALSE,
+  coerce_timestamps = NULL,
+  allow_truncated_timestamps = FALSE,
+  properties = NULL,
+  arrow_properties = NULL
+)
+
+```{r}
+devtools::install_github("collectivemedia/tictoc")
+
+library(tictoc)
+```
+
+## 3.1 Write parquet without compression
+```{r}
+# write parquet as uncompressed
+start_time <- Sys.time()
+output_path="pengfei/diffusion/data_format/sf_fire/parquet/r_arrow/r_arrow_sf_fire_none"
+write_parquet(df_sf_fire, sink = minio$path(output_path), compression = "uncompressed")
+end_time <- Sys.time()
+latency <- end_time-start_time
+cat("Latency for write parquet without compression: ", latency)
+
+```
+
+## 3.2 Write parquet with snappy
+
+```{r}
+# write parquet with snappy compression
+start_time <- Sys.time()
+output_path="pengfei/diffusion/data_format/sf_fire/parquet/r_arrow/r_arrow_sf_fire_snappy.parquet"
+write_parquet(df_sf_fire, sink = minio$path(output_path), compression = "snappy")
+end_time <- Sys.time()
+latency <- end_time-start_time
+cat("Latency for write parquet with snappy compression: ", latency)
+```
+
+## 3.3 Write parquet with gzip
+
+```{r}
+
+# write parquet as gzip
+# start_time <- Sys.time()
+tic()
+output_path="pengfei/diffusion/data_format/sf_fire/parquet/r_arrow/r_arrow_sf_fire_gzip.parquet"
+write_parquet(df_sf_fire, sink = minio$path(output_path), compression = "gzip")
+toc()
+# end_time <- Sys.time()
+# latency <- end_time-start_time
+# cat("Latency for write parquet with gzip compression: ", latency)
+```
+
+
+## 3.3 Write parquet with lz4
+
+```{r}
+# write parquet as lz4
+tic()
+output_path="pengfei/diffusion/data_format/sf_fire/parquet/r_arrow/r_arrow_sf_fire_lz4.parquet"
+write_parquet(df_sf_fire, sink = minio$path(output_path), compression = "lz4")
+toc()
+```
+
+## 3.4 Write parquet with zstd
+
+```{r}
+# write parquet as zstd
+tic()
+output_path="pengfei/diffusion/data_format/sf_fire/parquet/r_arrow/r_arrow_sf_fire_zstd.parquet"
+write_parquet(df_sf_fire, sink = minio$path(output_path), compression = "zstd")
+toc()
+```
+## 3.5 Write parquet with brotli
+
+```{r}
+# write parquet as brotli
+tic()
+output_path="pengfei/diffusion/data_format/sf_fire/parquet/r_arrow/r_arrow_sf_fire_brotli.parquet"
+write_parquet(df_sf_fire, sink = minio$path(output_path), compression = "brotli")
+toc()
+```
+
+
