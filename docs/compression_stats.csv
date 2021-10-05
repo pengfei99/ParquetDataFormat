@@ -1,4 +1,4 @@
-framework,compression_type,compression_time,size 
+framework,compression_type,compression_time,size
 pyarrow,none,72.52,1312
 pyarrow,brotli,163.55,332
 pyarrow,lz4,38.89,589
