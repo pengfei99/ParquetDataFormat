@@ -101,7 +101,9 @@ Parquet officially supports the following compression algorithms:
 
 But not all implementation implement all the compression algorithms. For example, pyarrow implements all except **LZO**. Spark by default only includes the **GZIP, and SNAPPY**. For the rest of the algorithme, we need to include the compression codec by ourselves. 
 
-Below shows a benchmark on parquet write time and file size with various framework and compression type.
+Below shows a benchmark on parquet write time and file size with various framework and compression type. The origin data
+is in csv format(pengfei/diffusion/data_format/Fire_Department_Calls_for_Service.csv), and it takes about 1.9GB. You can
+notice even without compression parquet requires only 1.2 GB to store the same data.
 
 ![Parquet_compression_stats](https://raw.githubusercontent.com/pengfei99/ParquetPyArrow/main/img/parquet_compression_stats.png)
 
