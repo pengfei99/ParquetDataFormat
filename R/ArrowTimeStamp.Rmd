@@ -136,8 +136,31 @@ head(df_spark_tz_v1)
 Can't cast it to a timestamp correctlly. The timezone offset is never taken into consideration.
 
 ```{r}
-x <- "2046-01-01 00:15:00+01:00"
-strftime(x, format = "%Y-%m-%d %H:%M:%S", tz = "UTC+1")
+x <- "2046-01-01 00:15:00+01"
+posixct1 <- strftime(x, format = "%Y-%m-%d %H:%M:%S", tz = "GMT",usetz = TRUE)
+typeof(posixct1)
+cat(posixct1)
+```
 
+
+```{r}
+posixct2 <- format(x, format = "%Y-%m-%d %H:%M:%S", tz = "GMT",usetz = TRUE)
+typeof(posixct2)
+cat(posixct2)
+```
+```{r}
+as.POSIXct(x,tz = "US/Pacific")
+posixct3 <- as.POSIXct(x,tz = "US/Pacific")
+typeof(posixct3)
+cat(posixct3)
+```
+```{r}
+as.POSIXct(x,tz = "CET")
+posixct4 <- as.POSIXct(x,tz = "CET")
+typeof(posixct4)
+cat(posixct4)
+```
+```{r}
+format(posixct4, tz="CET",usetz=TRUE)
 ```
 
