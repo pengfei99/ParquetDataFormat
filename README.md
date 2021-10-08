@@ -33,6 +33,7 @@ Normally, when we evaluate a data format, we use the following basic properties.
 |Complex data structure|NO|YES|YES|YES|YES|
 |Schema evolution|NO|NO|YES|YES|YES|
 |Columnar|NO|NO|YES|NO|YES|
+|Framework support|YES|YES|YES|YES|YES|
 
 Note:
 
@@ -206,6 +207,60 @@ Our recommendation is requirement specific :
 #### 2.5.2 Timestamp
 
 The best solution is to use **timestamp with timezone specification in String type**. The string type can avoid auto conversion
-of each framework. For each
+of each framework. In [Spark Pyarrow timestamp conversion notebook](https://github.com/pengfei99/ParquetPyArrow/blob/main/notebook/compatibility/ArrowSparkTimeStamp.ipynb)
+and [Rarrow timestamp conversion notebook](https://github.com/pengfei99/ParquetPyArrow/blob/main/R/ArrowTimeStamp.Rmd), we have seen
+how wrong it could go with numeric timestamp type.
+
+##### 2.5.2.1 Timestamp string format
+
+we recommend the following normal forme which uses (Year-month-day hour:minute:second+offset Timezone) the offset is used 
+to express time shift from the default timezone. 
+```text
+# normal format
+yyyy-MM-dd HH:mm:ssXXX
+
+# example
+2046-01-01 00:15:00+01:00 UTC
+```
+We found that some country may use two different timezone for different period of time in a year. For example, France use
+CET(UTC+01:00) during winter, and CEST(UTC+02:00) during summer. For people who are not familiar with timezone, this can be confusing.
+With the UTC offset, it's clearer to express time shift of different timezones.
+
+For example, in France, if we use local timezone, we may find the following timestamp, 
+
+```text
+2021-10-30 00:15:00 CEST
+2021-10-31 00:15:00 CET
+```
+
+
+
+
+##### 2.5.2.2 Choose a default timezone 
+Base on your project requirements, you may choose differently your timezone. 
+If your data source is from all over the world, we recommend to use UTC as timezone.
+
+If your data source 
+
+
+We will try to provide conversion code for popular framework
+
+##### 2.5.2.1 Convert string to timestamp in spark
+
+```python
+spark.conf.set("spark.sql.session.timeZone", "UTC")
+
+to_timestamp("2046-01-01 00:15:00+01:00","yyy-MM-dd HH:mm:ssXXX")
+```
+
+```python
+# Pandas provides the to_datetime() function which can convert string with time zone to a timezone aware timestamp.
+t1=pd.to_datetime('2046-01-01 00:15:00+01:00', utc=True)
+t2=pd.to_datetime('2046-01-01 00:15:00-01:00', utc=True)
+print(f"t1 type is : {type(t1)}, t1 value is: {t1}")
+print(f"t2 type is : {type(t2)}, t2 value is: {t2}")
+```
+
+If you have to use long or other numeric timestamp type. You need to read very carefully how the framework in
 
 ## 3. Parquet Optimization
