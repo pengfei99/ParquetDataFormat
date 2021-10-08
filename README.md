@@ -103,7 +103,7 @@ But not all implementation implement all the compression algorithms. For example
 
 Below shows a benchmark on parquet write time and file size with various framework and compression type. The origin data
 is in csv format(pengfei/diffusion/data_format/Fire_Department_Calls_for_Service.csv), and it takes about 1.9GB. You can
-notice even without compression parquet requires only 1.2 GB to store the same data.
+notice even without compression, parquet format requires only 1.2 GB to store the same data.
 
 ![Parquet_compression_stats](https://raw.githubusercontent.com/pengfei99/ParquetPyArrow/main/img/parquet_compression_stats.png)
 
@@ -113,7 +113,7 @@ In this notebook [Spark Arrow compression benchmark](https://github.com/pengfei9
 Then we test the compatibility of the output parquet file between pyarrow and spark. 
 
 In this notebook [R Arrow compression benchmark](https://github.com/pengfei99/ParquetPyArrow/blob/main/R/ArrowCompression.Rmd), we first benchmark the compression latency of Rarrow. Then we test the compatibility of the
-output parquet file between Rarrow, Pyarrow, spark.
+output parquet file between Rarrow, Pyarrow, and spark.
 
 
 ### 2.2 Timestamp implementation variation
@@ -181,5 +181,31 @@ parquet-mr hardcoded version in footer to '1'.
 This should be corrected in spark3. 
 
 For more details, please check [Parquet files v2.0 created by spark can't be read by pyarrow](https://issues.apache.org/jira/browse/ARROW-6057)
+
+
+### 2.5 Recommendation for parquet file compatibility
+
+#### 2.5.1 Compression 
+In most frameworks, the default compression algorithm of the parquet reader and writer is **SNAPPY**. The second most 
+supported compression algorithm is **GZIP**. In [Spark/Arrow parquet compression benchmark](https://github.com/pengfei99/ParquetPyArrow/blob/main/notebook/compatibility/SparkArrowCompression.ipynb), 
+we have noticed: 
+- **SNAPPY provides better compression time, but worse compression ratio**
+  
+- **GZIP provides better compression ratio (30%~50% better than SNAPPY), but worse compression time(200%~300% longer than snappy)**
+
+- **ZSTD provides better compression ratio and time, but not well-supported**
+
+Our recommendation is requirement specific :
+
+1. **For hot data, use SNAPPY as default compression. For cold data, use GZIP**. They are both well-supported. All parquet readers and writers are compatible with
+   these two algorithms.
+
+1. If your organization has enough budge for humain resource, use ZSTD. The data engineer will update all 
+   your frameworks that need to read or write parquet file to support ZSTD.
+   
+#### 2.5.2 Timestamp
+
+The best solution is to use **timestamp with timezone specification in String type**. The string type can avoid auto conversion
+of each framework. For each
 
 ## 3. Parquet Optimization
