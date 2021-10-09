@@ -33,7 +33,7 @@ Normally, when we evaluate a data format, we use the following basic properties.
 |Complex data structure|NO|YES|YES|YES|YES|
 |Schema evolution|NO|NO|YES|YES|YES|
 |Columnar|NO|NO|YES|NO|YES|
-|Framework support|YES|YES|YES|YES|YES|
+|Framework support|YES++|YES++|YES+|YES+|YES|
 
 Note:
 
