@@ -59,7 +59,11 @@ We have benchmarked all above data formats for the common data operations latenc
 - Filtering/GroupBy(column-wise)
 - Distinct(row-wise)
 
-For more details about the benchmark, [data format overview](https://github.com/pengfei99/data_format_and_optimization/blob/main/notebooks/data_format_overview.ipynb)
+You can check the results in below figure:
+
+![Common data operations latency](https://raw.githubusercontent.com/pengfei99/ParquetPyArrow/main/img/format_op_latency_stats.PNG)
+
+For more details about the benchmark, please check [data format overview](https://github.com/pengfei99/data_format_and_optimization/blob/main/notebooks/data_format_overview.ipynb)
 
 After the above analysis, we can say that Orc and Parquet are the best data formats for OLAP applications. They both support various compression algorithms which reduce significantly disk usage. They are both very efficient on columnar-oriented data analysis operations. 
 
@@ -336,7 +340,7 @@ all supported data types. For example, all int in your dataframe should be signe
 #### 2.5.4 Data format version and metadata
 
 Even though spark, Pyarrow and Rarrow can read parquet format version 2.0. We still recommend that you use version 1.0 when you
-write parquet file. For more details about the parquet format version, please visit [this](https://github.com/apache/parquet-format/blob/master/CHANGES.md)
+write parquet file. For more details about the parquet format version, please visit this [page](https://github.com/apache/parquet-format/blob/master/CHANGES.md)
 
 
 ## 3. Parquet Optimization
