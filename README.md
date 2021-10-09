@@ -204,55 +204,101 @@ Our recommendation is requirement specific :
 1. If your organization has enough budge for humain resource, use ZSTD. The data engineer will update all 
    your frameworks that need to read or write parquet file to support ZSTD.
    
+##### 2.5.1.1 Spark write parquet file to s3 with custom compression algo
+
+```python
+# df is the target dataframe
+# path is the output s3 path
+# partition_number defines how many partitions that your parquet file will have.
+# compression_algo default value is SNAPPY 
+def check_spark_parquet_write_time(df,path,partition_number,compression_algo="SNAPPY"):
+    df.coalesce(partition_number).write \
+    .option("parquet.compression",compression_algo) \
+    .parquet(path) 
+
+```
+##### 2.5.1.2 PyArrow write parquet file to s3 with custom compression algo
+
+The full code can be found in [Spark/Arrow parquet compression benchmark](https://github.com/pengfei99/ParquetPyArrow/blob/main/notebook/compatibility/SparkArrowCompression.ipynb)
+```python
+# This function write an arrow table to s3 as parquet files, you can specify a compression type
+# compression (str or dict) – Specify the compression codec, either on a general basis or per-column. 
+# Valid values: {‘NONE’, ‘SNAPPY’, ‘GZIP’, ‘BROTLI’, ‘LZ4’, ‘ZSTD’}.
+# default is snappy.
+
+def write_parquet_as_partitioned_dataset(table, endpoint, bucket_name, path, partition_cols=None, compression="SNAPPY"):
+    url = f"https://{endpoint}"
+    fs = s3fs.S3FileSystem(client_kwargs={'endpoint_url': url})
+    file_uri = f"{bucket_name}/{path}"
+    pq.write_to_dataset(table, root_path=file_uri, partition_cols=partition_cols, filesystem=fs, compression=compression)
+```
+
+##### 2.5.1.2 RArrow write parquet file to s3 with custom compression algo   
+
+```R
+# If you do not have the following env var set. You need to replace all the Sys.getenv by real values.
+minio <- S3FileSystem$create(
+   access_key = Sys.getenv("AWS_ACCESS_KEY_ID"),
+   secret_key = Sys.getenv("AWS_SECRET_ACCESS_KEY"),
+   session_token = Sys.getenv("AWS_SESSION_TOKEN"),
+   scheme = "https",
+   endpoint_override = Sys.getenv("AWS_S3_ENDPOINT")
+   )
+  
+# df is the target dataframe
+# output_path is the s3 path
+# default compression is snappy.
+write_parquet(df, sink = minio$path(output_path), compression = "snappy")
+```
+
 #### 2.5.2 Timestamp
 
 The best solution is to use **timestamp with timezone specification in String type**. The string type can avoid auto conversion
 of each framework. In [Spark Pyarrow timestamp conversion notebook](https://github.com/pengfei99/ParquetPyArrow/blob/main/notebook/compatibility/ArrowSparkTimeStamp.ipynb)
 and [Rarrow timestamp conversion notebook](https://github.com/pengfei99/ParquetPyArrow/blob/main/R/ArrowTimeStamp.Rmd), we have seen
-how wrong it could go with numeric timestamp type.
+how wrong it could go with numeric timestamp type auto conversion.
 
-##### 2.5.2.1 Timestamp string format
+As a result, we recommend the **ISO 8601 Date and Time Format**. ISO 8601 represents date and time by starting with the 
+**year, followed by the month, the day, the hour, the minutes, seconds and milliseconds**.
 
-we recommend the following normal forme which uses (Year-month-day hour:minute:second+offset Timezone) the offset is used 
-to express time shift from the default timezone. 
-```text
-# normal format
-yyyy-MM-dd HH:mm:ssXXX
+YYYY-MM-DDThh:mm:ss.sTZD (eg 1997-07-16T19:20:30.45+01:00)
+where:
+- YYYY = four-digit year 
+  
+- MM = two-digit month (01=January, etc.)
+  
+- DD = two-digit day of month (01 through 31)
+  
+- hh = two digits of hour (00 through 23) (am/pm NOT allowed)
+  
+- mm = two digits of minute (00 through 59)
+  
+- ss = two digits of second (00 through 59)
+  
+- s = one or more digits representing a decimal fraction of a second 
+  
+-TZD  = time zone designator. Possible value is 
+        - Z: no offset to UTC
+        - +hh:mm: plus hh:mm to UTC
+        - -hh:mm: minus hh:mm to UTC
 
-# example
-2046-01-01 00:15:00+01:00 UTC
-```
 We found that some country may use two different timezone for different period of time in a year. For example, France use
 CET(UTC+01:00) during winter, and CEST(UTC+02:00) during summer. For people who are not familiar with timezone, this can be confusing.
 With the UTC offset, it's clearer to express time shift of different timezones.
 
-For example, in France, if we use local timezone, we may find the following timestamp, 
-
-```text
-2021-10-30 00:15:00 CEST
-2021-10-31 00:15:00 CET
-```
-
-
-
-
-##### 2.5.2.2 Choose a default timezone 
-Base on your project requirements, you may choose differently your timezone. 
-If your data source is from all over the world, we recommend to use UTC as timezone.
-
-If your data source 
-
-
-We will try to provide conversion code for popular framework
+One **drawback** of the ISO 8601 Date and Time Format, for the time specification, it can only express millisecond precision.
 
 ##### 2.5.2.1 Convert string to timestamp in spark
+In spark, we need to override the system default timezone by UTC, if it's different from UTC. Otherwise, the conversion will
+be based on a wrong timezone.
 
 ```python
 spark.conf.set("spark.sql.session.timeZone", "UTC")
 
 to_timestamp("2046-01-01 00:15:00+01:00","yyy-MM-dd HH:mm:ssXXX")
 ```
-
+##### 2.5.2.2 Convert string to timestamp in Python/pandas
+Pandas allows you to specify the timezone during the conversion. 
 ```python
 # Pandas provides the to_datetime() function which can convert string with time zone to a timezone aware timestamp.
 t1=pd.to_datetime('2046-01-01 00:15:00+01:00', utc=True)
@@ -260,7 +306,37 @@ t2=pd.to_datetime('2046-01-01 00:15:00-01:00', utc=True)
 print(f"t1 type is : {type(t1)}, t1 value is: {t1}")
 print(f"t2 type is : {type(t2)}, t2 value is: {t2}")
 ```
+##### 2.5.2.3 Convert string to timestamp in R
 
-If you have to use long or other numeric timestamp type. You need to read very carefully how the framework in
+The complete R [doc](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/as.POSIX*) of POSIXct.
+
+You can notice that the digits behinds the seconds are ignored, even though the doc says with %OS, POSIXct can keep
+up to 6 digits after second. 
+```R
+str_timestamp = "2009-01-27 20:02:22.666+02:00"
+timestamp <- as.POSIXct(gsub(":","",str_timestamp),  format = "%Y-%m-%d %H%M%OS%z")
+typeof(timestamp)
+cat(timestamp)
+
+# It returns
+# [1] "double"
+# 1233079342
+```
+
+##### 2.5.2.4 Other data type for timestamp.
+For one reason or another, if you have to use long or other numeric timestamp type. You need to read very carefully 
+how the framework implement the timestamp to avoid error led by unity variation.
+
+
+#### 2.5.3 Data types
+
+Do not use unsupported data type in your data frame that you want to generate to parquet file. Check section 2.3 to get
+all supported data types. For example, all int in your dataframe should be signed. **Never use unsigned int**. 
+
+#### 2.5.4 Data format version and metadata
+
+Even though spark, Pyarrow and Rarrow can read parquet format version 2.0. We still recommend that you use version 1.0 when you
+write parquet file. For more details about the parquet format version, please visit [this](https://github.com/apache/parquet-format/blob/master/CHANGES.md)
+
 
 ## 3. Parquet Optimization
