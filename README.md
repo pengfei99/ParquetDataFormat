@@ -342,5 +342,12 @@ all supported data types. For example, all int in your dataframe should be signe
 Even though spark, Pyarrow and Rarrow can read parquet format version 2.0. We still recommend that you use version 1.0 when you
 write parquet file. For more details about the parquet format version, please visit this [page](https://github.com/apache/parquet-format/blob/master/CHANGES.md)
 
+### 2.6 SAS and parquet
+In SAS, you need to have one of the following interfaces to read parquet files:
+- SAS/Access to Hadoop 
+  
+- SAS/Access to ODBC 
+  
+- SAS/Access to Impala
 
 ## 3. Parquet Optimization
