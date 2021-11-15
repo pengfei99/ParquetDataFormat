@@ -86,7 +86,7 @@ Data Serialization Formats:
 
 
 ![parquet_format_overview](https://raw.githubusercontent.com/pengfei99/ParquetPyArrow/main/img/parquet_format.gif)
-![parquet_format_breakdown](https://raw.githubusercontent.com/pengfei99/ParquetPyArrow/main/img/parquet_file_format.svg)
+![parquet_format_breakdown](https://raw.githubusercontent.com/pengfei99/ParquetPyArrow/main/img/parquet_file_layout.svg)
 
 The above figure shows the three basic components of a parquet file:
 - **Header**: It contains a Magic Number, which indicates the file is in parquet format.
