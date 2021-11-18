@@ -281,10 +281,10 @@ where:
   
 - s = one or more digits representing a decimal fraction of a second 
   
--TZD  = time zone designator. Possible value is 
-        - Z: no offset to UTC
-        - +hh:mm: plus hh:mm to UTC
-        - -hh:mm: minus hh:mm to UTC
+- TZD  = time zone designator. Possible value is 
+  - Z: no offset to UTC
+  - +hh:mm: plus hh:mm to UTC
+  - -hh:mm: minus hh:mm to UTC
 
 We found that some country may use two different timezone for different period of time in a year. For example, France use
 CET(UTC+01:00) during winter, and CEST(UTC+02:00) during summer. For people who are not familiar with timezone, this can be confusing.
