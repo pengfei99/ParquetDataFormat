@@ -49,7 +49,6 @@ mc ls --summarize s3/pengfei/diffusion/data_format/ny_taxis/csv/2009 | grep "Tot
 Total Size: 22 GiB
 ```
 
-
 ### 1.2. Operation latency evaluation for all above data formats 
 
 We have benchmarked all above data formats for the common data operations latency such as:
@@ -81,6 +80,9 @@ Parquet is designed for long-term storage and archival purposes, meaning if you 
 
 - If you need to constantly update(write) your data, do not use columnar-based data formats such as ORC, Parquet. 
 - If you need to constantly update your data schema, do not use Parquet. Use Avro.
+
+### 1.5 Choose your format based on your project
+There is no magic format that can solve all your problems. But you can find a format that is the best for your project. Define your project requirements first, then quantify these requirements into metrics. At last, evaluate each data foramt based on the metric. This allows you to find the best data format for your project.  
 
 ## 2. Compatibility issues
 
