@@ -99,6 +99,7 @@ for(year in 2011:2019){
   tmp_remote<-file.path("nyc-taxi",year,"01")
   tmp_local<-file.path("~",tmp_remote)
   try(dir.create(tmp_local, recursive = T))
+  print(paste("Copying dataset of year:", year))
   arrow::copy_files(taxi$path(tmp_remote), tmp_local)
 }
 
