@@ -98,8 +98,6 @@ arrow::copy_files(minio$path(data_path), local_data_path )
 for(year in 2011:2019){
   tmp_remote<-file.path("nyc-taxi",year,"01")
   tmp_local<-file.path("~",tmp_remote)
-  print(tmp_remote)
-  print(tmp_local)
   try(dir.create(tmp_local, recursive = T))
   arrow::copy_files(taxi$path(tmp_remote), tmp_local)
 }
