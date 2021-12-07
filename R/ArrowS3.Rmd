@@ -17,9 +17,17 @@ Sys.setenv(LIBARROW_MINIMAL="false")
 # Download and compile the package, it may take a while. Please be patient
 install.packages("arrow", repos = "https://cloud.r-project.org")
 
+
+```
+
+## 1.1 Import packages
+
+- arrow can read and write data in various format such as parquet
+- dplyr is a grammar of data manipulation, providing a consistent set of verbs that help you solve the most common data manipulation challenges
+```{r}
 # import the package
 library(arrow)
-
+library(dplyr, warn.conflicts = FALSE)
 ```
 
 ## Step 2. Configure a s3 file system
@@ -79,14 +87,23 @@ arrow::copy_files(minio$path(data_path), local_data_path )
 
 ```
 
-
+#### Copy data from remote s3 server 
 ```{r}
-# copy the data of January 2009 to local file
-try(dir.create("~/nyc-taxi/2009/01", recursive = T))
+# copy the data of January from 2009 to 2019 local file
 
-arrow::copy_files(taxi$path("nyc-taxi/2009/01"), "~/nyc-taxi/2009/01")
+for(year in 2011:2019){
+  tmp_remote<-file.path("nyc-taxi",year,"01")
+  tmp_local<-file.path("~",tmp_remote)
+  print(tmp_remote)
+  print(tmp_local)
+  try(dir.create(tmp_local, recursive = T))
+  arrow::copy_files(taxi$path(tmp_remote), tmp_local)
+}
+
 
 ```
+
+
 
 
 After the download, you can check the file by using the Terminal.
@@ -142,11 +159,68 @@ head(df_nyc)
 You can also read the data from a remote path
 
 ```{r}
-
 df_sf_fire <- open_dataset(
   minio$path(data_path)
 )
 head(df_sf_fire)
+```
+
+### 3.5 Querying the dataset
+
+We have seen how to read parquet files. Note when you read a path that contains 
+paruqet files. You are not loading any data. You’ve walked directories to 
+find files, you’ve parsed file paths to identify partitions, and you’ve read 
+the headers of the Parquet files to inspect their schemas so that you can make 
+sure they all are as expected.
+
+For now, Arrow R (6.0.*) package supports the dplyr verbs mutate(), transmute(), 
+select(), rename(), relocate(), filter(), and arrange(). **Aggregation is not 
+yet supported, so before you call summarise() or other verbs with aggregate 
+functions, use collect() to pull the selected subset of the data into an 
+in-memory R data frame**.
+
+
+Here’s an example: suppose that you are curious about tipping behavior among 
+the longest taxi rides. Let’s find the median tip percentage for rides with 
+fares greater than $100 in 2009, broken down by the number of passengers:
+
+```{r}
+system.time(
+df_nyc %>%
+  filter(total_amount > 100, year == 2010) %>%
+  select(tip_amount, total_amount, passenger_count) %>%
+  mutate(tip_pct = 100 * tip_amount / total_amount) %>%
+  group_by(passenger_count) %>%
+  collect() %>%
+  summarise(
+    median_tip_pct = median(tip_pct),
+    n = n()
+  ) %>%
+  
+  print())
+```
+
+## 3.6 Write partitioned parquet file
+
+```
+write_dataset(
+  dataset,
+  path,
+  format = c("parquet", "feather", "arrow", "ipc"),
+  partitioning = dplyr::group_vars(dataset),
+  basename_template = paste0("part-{i}.", as.character(format)),
+  hive_style = TRUE,
+  ...
+)
+```
+```{r}
+data <- dplyr::group_by(mtcars, cyl)
+
+
+write_dataset(data, 
+              tf,
+              format=hive_style = TRUE,)
+
 ```
 
 
