@@ -189,7 +189,8 @@ This should be corrected in spark3.
 
 For more details, please check [Parquet files v2.0 created by spark can't be read by pyarrow](https://issues.apache.org/jira/browse/ARROW-6057)
 
-
+**Pyarrow allows us to write parquet with version ({"1.0", "2.4", "2.6"}, default "1.0")** 
+**Spark (<3.2) does not allow us to write parquet with a version argument**
 ### 2.5 Recommendation for parquet file compatibility
 
 #### 2.5.1 Compression 
@@ -353,3 +354,12 @@ In SAS, you need to have one of the following interfaces to read parquet files:
 - SAS/Access to Impala
 
 ## 3. Parquet Optimization
+
+### 3.1 Partitions
+
+The R arrow package has a maximum partition limit (i.e. 1024). For the current version, you can not modify this value. As a result, you can not write parquet with more than 1024 partitions by using R arrow. For more details, please check section 3.6 of [RArrow_basics](https://github.com/pengfei99/ParquetPyArrow/blob/main/R/ArrowS3.Rmd).
+
+PyArrow also has a maximum partition limit (i.e. 1024). But since PyArrow 4.1, you can change the maximum partition limit by using 
+
+
+Spark does not have maximum partition limit. For code example, please check section 2.2 of [SparkParquet_basics](https://github.com/pengfei99/ParquetPyArrow/blob/main/notebook/basic/SparkParquetBasics.ipynb) 
